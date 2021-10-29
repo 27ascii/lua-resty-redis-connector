@@ -370,23 +370,33 @@ function _M.connect_to_host(self, host)
     local ok, err
     local path = host.path
     local opts = config.connection_options
+
+    if not opts then
+        opts = {}
+    end
+    
+    if not opts.pool then
+        opts.pool = string.format("%s%s%s%s%s%s%s",  config.host, config.port, config.db, config.username, config.password, config.sentinel_username, config.sentinel_password)
+    end
+
     if path and path ~= "" then
-        if opts then
-            ok, err = r:connect(path, config.connection_options)
-        else
-            ok, err = r:connect(path)
-        end
+        ok, err = r:connect(path, config.connection_options)
     else
-        if opts then
-            ok, err = r:connect(host.host, host.port, config.connection_options)
-        else
-            ok, err = r:connect(host.host, host.port)
-        end
+        ok, err = r:connect(host.host, host.port, config.connection_options)
     end
 
     if not ok then
         return nil, err
     else
+        local times, err = r:get_reused_times()
+        if err then 
+	  return nil, err
+	end
+
+        if times > 0 then
+	  return r, nil
+	end
+
         local username = host.username
         local password = host.password
         if password and password ~= "" then
